@@ -1,0 +1,19 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    attribute_struct (0.2.24)
+    miasma-aws (0.1.30)
+    multi_json (1.11.2)
+    sparkle_formation (0.4.0)
+      attribute_struct (~> 0.2.2)
+      multi_json
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  miasma-aws (~> 0.1.30)
+  sparkle_formation
+
+BUNDLED WITH
+   1.10.6
