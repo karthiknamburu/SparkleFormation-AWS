@@ -18,13 +18,16 @@ SparkleFormation.dynamic(:subnet) do |_name, _config = {}|
     end
   end
 
+if _name == 'public'
   resources("#{_name}_subnet_route_table_association".to_sym) do
     type 'AWS::EC2::SubnetRouteTableAssociation'
+    #auto_assign_public_ip ref!("yes")
     properties do
       route_table_id _config[:route_table]
       subnet_id ref!("#{_name}_subnet".to_sym)
     end
   end
+end
 
   outputs("#{_name}_subnet".to_sym) do
     value ref!("#{_name}_subnet".to_sym)

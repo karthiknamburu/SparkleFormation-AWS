@@ -1,18 +1,13 @@
-SparkleFormation.new(:dev_sims).load(:openvpn,:rds,:vpc).overrides do
+SparkleFormation.new(:open_vpn).load(:openvpn).overrides do
   
   parameters(:public_subnet_availability_zone) do
     type 'String'
     default 'us-east-1a'
   end
 
-  parameters(:private_subnet_availability_zone_1) do
+  parameters(:private_subnet_availability_zone) do
     type 'String'
     default 'us-east-1c'
-  end
-
-  parameters(:private_subnet_availability_zone_2) do
-    type 'String'
-    default 'us-east-1d'
   end
 
 ##Create private and public subnets
@@ -22,30 +17,11 @@ SparkleFormation.new(:dev_sims).load(:openvpn,:rds,:vpc).overrides do
       :availability_zone => ref!(:public_subnet_availability_zone)
   )
 
-  dynamic!(:subnet, 'private_1',
+  dynamic!(:subnet, 'private',
       :vpc_id => ref!(:vpc),
       #:route_table => ref!(:private_route_table),
-      :availability_zone => ref!(:public_subnet_availability_zone)
+      :availability_zone => ref!(:private_subnet_availability_zone)
   )
-
-   dynamic!(:subnet, 'private_2',
-      :vpc_id => ref!(:vpc),
-      #:route_table => ref!(:private_route_table),
-      :availability_zone => ref!(:private_subnet_availability_zone_1)
-  )
-
-
-## NAT Interface
-
- # # Assign a elastic IP for the instance.
- #  resources(:instance_elastic_ip_nat) do
- #    type 'AWS::EC2::EIP'
- #    properties do
- #      domain 'vpc'
- #      instance_id ref!(:ec2_instance)
- #    end
- #  end
-
 
 ##Create Security groups for the resource being used in AWS.
 
@@ -54,26 +30,37 @@ SparkleFormation.new(:dev_sims).load(:openvpn,:rds,:vpc).overrides do
     type 'AWS::EC2::SecurityGroup'
     properties do
       vpc_id ref!(:vpc)
-      group_description 'users access security rules'
+      group_description 'Setup Web server and users access security rules'
        tags _array(
         -> {
           Key 'Name'
-          Value 'dot-sims-public'
+          Value 'public-dot-sims'
         }
       )
     end
   end
 
-  resources(:public_ssh_security_group_ingress) do
+  resources(:http_security_group_ingress) do
       type 'AWS::EC2::SecurityGroupIngress'
       properties do
         group_id ref!(:public_instance_security_group)
         ip_protocol 'tcp'
-        from_port 22
-        to_port 22
-        cidr_ip ref!(:openvpn_cidr)
+        from_port 80
+        to_port 80
+        cidr_ip '0.0.0.0/0'
       end
   end
+
+   resources(:https_security_group_ingress) do
+      type 'AWS::EC2::SecurityGroupIngress'
+      properties do
+        group_id ref!(:public_instance_security_group)
+        ip_protocol 'tcp'
+        from_port 443
+        to_port 443
+        cidr_ip '0.0.0.0/0'
+      end
+    end
 
 
 #Create a Private Security Group
@@ -81,7 +68,7 @@ SparkleFormation.new(:dev_sims).load(:openvpn,:rds,:vpc).overrides do
     type 'AWS::EC2::SecurityGroup'
     properties do
       vpc_id ref!(:vpc)
-      group_description 'allow access to OpenVpn users'
+      group_description 'allow access to public instances'
        tags _array(
         -> {
           Key 'Name'
@@ -91,58 +78,14 @@ SparkleFormation.new(:dev_sims).load(:openvpn,:rds,:vpc).overrides do
     end
   end
 
-  resources(:private_ssh_security_group_ingress) do
-      type 'AWS::EC2::SecurityGroupIngress'
-      properties do
-        group_id ref!(:private_instance_security_group)
-        ip_protocol 'tcp'
-        from_port 22
-        to_port 22
-        cidr_ip ref!(:openvpn_cidr)
-      end
-  end
-
-  resources(:private_http_security_group_ingress) do
-      type 'AWS::EC2::SecurityGroupIngress'
-      properties do
-        group_id ref!(:private_instance_security_group)
-        ip_protocol 'tcp'
-        from_port 80
-        to_port 80
-        cidr_ip '0.0.0.0/0'
-      end
-  end
-
-  resources(:private_https_security_group_ingress) do
-      type 'AWS::EC2::SecurityGroupIngress'
-      properties do
-        group_id ref!(:private_instance_security_group)
-        ip_protocol 'tcp'
-        from_port 443
-        to_port 443
-        cidr_ip '0.0.0.0/0'
-      end
-  end
-
-   resources(:postgres_security_group_ingress) do
+  resources(:postgres_security_group_ingress) do
       type 'AWS::EC2::SecurityGroupIngress'
       properties do
         group_id ref!(:private_instance_security_group)
         ip_protocol 'tcp'
         from_port 5432
         to_port 5432
-        cidr_ip ref!(:private_1_subnet_cidr)
-      end
-  end
-
-   resources(:postgres_1_security_group_ingress) do
-      type 'AWS::EC2::SecurityGroupIngress'
-      properties do
-        group_id ref!(:private_instance_security_group)
-        ip_protocol 'tcp'
-        from_port 5432
-        to_port 5432
-        cidr_ip ref!(:openvpn_cidr)
+        cidr_ip ref!(:public_subnet_cidr)
       end
   end
 
@@ -153,18 +96,66 @@ SparkleFormation.new(:dev_sims).load(:openvpn,:rds,:vpc).overrides do
         ip_protocol 'tcp'
         from_port 11211
         to_port 11211
-        cidr_ip ref!(:private_1_subnet_cidr)
+        cidr_ip ref!(:public_subnet_cidr)
       end
     end
 
-     resources(:memcache_1_security_group_ingress) do
+#Create OpenVpn security Group
+  resources(:openvpn_instance_security_group) do
+    type 'AWS::EC2::SecurityGroup'
+    properties do
+      vpc_id ref!(:vpc)
+      group_description 'allow access to ec2 instance'
+       tags _array(
+        -> {
+          Key 'Name'
+          Value 'OpenVpn'
+        }
+      )
+    end
+  end
+
+  resources(:ssh_security_group_ingress) do
       type 'AWS::EC2::SecurityGroupIngress'
       properties do
-        group_id ref!(:private_instance_security_group)
+        group_id ref!(:openvpn_instance_security_group)
         ip_protocol 'tcp'
-        from_port 11211
-        to_port 11211
-        cidr_ip ref!(:openvpn_cidr)
+        from_port 22
+        to_port 22
+        cidr_ip '0.0.0.0/0'
+      end
+  end
+
+   resources(:https_security_group_ingress) do
+      type 'AWS::EC2::SecurityGroupIngress'
+      properties do
+        group_id ref!(:openvpn_instance_security_group)
+        ip_protocol 'tcp'
+        from_port 443
+        to_port 443
+        cidr_ip '0.0.0.0/0'
+      end
+    end
+
+    resources(:tcp_security_group_ingress) do
+      type 'AWS::EC2::SecurityGroupIngress'
+      properties do
+        group_id ref!(:openvpn_instance_security_group)
+        ip_protocol 'tcp'
+        from_port 943
+        to_port 943
+        cidr_ip '0.0.0.0/0'
+      end
+    end
+
+    resources(:udp_security_group_ingress) do
+      type 'AWS::EC2::SecurityGroupIngress'
+      properties do
+        group_id ref!(:openvpn_instance_security_group)
+        ip_protocol 'udp'
+        from_port 1194
+        to_port 1194
+        cidr_ip '0.0.0.0/0'
       end
     end
 
@@ -210,6 +201,12 @@ SparkleFormation.new(:dev_sims).load(:openvpn,:rds,:vpc).overrides do
 #  end
 
 
+
+##Create a ElastiCache(memcache) instance
+
+
+
+
 ##Create a RDS instance in Private Subnet
   # resources(:rds) do
   #   type 'AWS::RDS::DBInstance'
@@ -234,11 +231,45 @@ SparkleFormation.new(:dev_sims).load(:openvpn,:rds,:vpc).overrides do
 
   # end
 
-  ##Create a ElastiCache(memcache) instance
+##Create a EC2 Instance with OpenVpn server.
 
+  #Create instance using the registedred AMI.
+  resources(:ec2_instance) do
+    type 'AWS::EC2::Instance'
+    properties do
+      instance_type ref!(:instance_type)
+      image_id ref!(:openvpn_ami_id)
+      security_group_ids [ref!(:openvpn_instance_security_group)]
+      subnet_id ref!(:public_subnet)
+      key_name ref!(:key_name)
+       tags _array(
+        -> {
+          Key 'Name'
+          Value 'OpenVpn-prod'
+        }
+      )
+    end
+  end
+
+ # Assign a elastic IP for the instance.
+  resources(:instance_elastic_ip) do
+    type 'AWS::EC2::EIP'
+    properties do
+      domain 'vpc'
+      instance_id ref!(:ec2_instance)
+    end
+  end
 
   outputs do
+    instance_id do
+      description 'Instance Id of newly created instance'
+      value ref!(:ec2_instance)
+    end
 
+    instance_ip do
+      description 'Public IP address of newly created instance'
+      value ref!(:instance_elastic_ip)
+    end
   end
 
 end

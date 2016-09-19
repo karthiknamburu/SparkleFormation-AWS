@@ -22,7 +22,7 @@ SparkleFormation.build do
     description 'Select Instance type'
     type 'String'
     allowed_values %w( db.m3.large db.m3.xlarge )
-    default 'db.m3.xlarge'
+    default 'db.m3.large'
   end
 
   parameters(:MultiAZ) do
@@ -62,6 +62,12 @@ SparkleFormation.build do
     default '5432'
   end
 
+  # parameters(:DBSecurityGroupName) do
+  #   description 'DBSecurityGroupName'
+  #   type 'String'
+  #   default '5432'
+  # end
+
   # resources(:DBSubnetGroup) do
   #   type 'AWS::RDS::DBSubnetGroup'
   #   properties do
@@ -71,25 +77,11 @@ SparkleFormation.build do
   # end
 
   # "DBInstanceIdentifier"  : "test-db",
-  #               "Engine"                : "sqlserver-ex",
+  #  "Engine"                : "sqlserver-ex",
   #               "Port"                  : "1433",
   #               "DBInstanceClass"       : "db.t1.micro",
   #               "AllocatedStorage"      : "30",
   #               "MasterUsername"        : "sa",
   #               "MasterUserPassword"    : "password"
-
-  resources(:rds) do
-    type 'AWS::RDS::DBCluster'
-    properties do
-      DBInstanceIdentifier ref!(:DBInstanceIdentifier)
-      Engine ref!(:Engine)
-      Port ref!(:Port)
-      DBInstanceClass ref!(:DBInstanceClass)
-      AllocatedStorage ref!(:AllocatedStorage)
-      MasterUsername ref!(:MasterUsername)
-      MasterUserPassword ref!(:MasterUserPassword)
-    end
-  end
-
 
 end

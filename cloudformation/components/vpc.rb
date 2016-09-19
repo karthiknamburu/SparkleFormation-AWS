@@ -27,6 +27,12 @@ SparkleFormation.build do
     allowed_values %w(default dedicated)
   end
 
+  parameters(:openvpn_vpc) do
+    description 'the openvpn vpc id'
+    type 'String'
+    default 'vpc-a1e780c5'
+  end
+
   resources(:dhcp_options) do
     type 'AWS::EC2::DHCPOptions'
     properties do
@@ -65,7 +71,7 @@ SparkleFormation.build do
     end
   end
 
-  %w( public private ).each do |type|
+  %w( public ).each do |type|
     resources("#{type}_route_table".to_sym) do
       type 'AWS::EC2::RouteTable'
       properties do
@@ -92,6 +98,15 @@ SparkleFormation.build do
     end
   end
 
+
+  resources(:vpc_peering) do
+    type 'AWS::EC2::VPCPeeringConnection'
+    properties do
+      VpcId ref!(:vpc)
+      PeerVpcId ref!(:openvpn_vpc)
+    end
+  end
+
   resources(:internet_gateway_attachment) do
     type 'AWS::EC2::VPCGatewayAttachment'
     properties do
@@ -109,20 +124,28 @@ SparkleFormation.build do
     end
   end
 
-  resources(:private_subnet_internet_route) do
-    type 'AWS::EC2::Route'
-    properties do
-      destination_cidr_block '0.0.0.0/0'
-      gateway_id ref!(:internet_gateway)
-      route_table_id ref!(:private_route_table)
-    end
-  end
+  # resources(:vpc_peering_route) do
+  #   type 'AWS::EC2::Route'
+  #   properties do
+  #     destination_cidr_block ref!(:openvpn_cidr)
+  #     gateway_id ref!(:vpc_peering)
+  #     route_table_id ref!(:public_route_table)
+  #   end
+  # end
+
+  
+  # resources(:private_subnet_internet_route) do
+  #   type 'AWS::EC2::Route'
+  #   properties do
+  #     route_table_id ref!(:private_route_table)
+  #   end
+  # end
 
   outputs(:vpc_id) do
     value ref!(:vpc)
   end
 
-  [ :vpc_cidr, :public_route_table, :private_route_table, :internet_gateway ].each do |x|
+  [ :vpc_cidr, :public_route_table, :internet_gateway ].each do |x|
     outputs do
       set!(x) do
         value ref!(x)

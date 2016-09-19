@@ -21,6 +21,14 @@ SparkleFormation.build do
       allowed_values %w( t2.small t2.large )
       default 't2.large'
     end
+
+    openvpn_cidr do
+      type 'String'
+      description 'OpenVPN Subnet'
+      default '10.90.0.0/24'
+   end
+
+
   end
 
 end
